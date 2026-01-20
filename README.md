@@ -1,2 +1,3 @@
 # Terraform-Project
-First terraform lab for testing cyber ranges
+Master thesis terraform project
+
