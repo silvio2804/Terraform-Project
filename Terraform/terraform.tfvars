@@ -1,11 +1,11 @@
-pm_api_url      = "https://proxmox.local:8006/api2/json"
+pm_api_url      = "https://192.168.1.135:8006/api2/json"
 pm_user         = "terraform@pve"
-pm_password     = "CHANGE_ME"
-pm_target_node  = "pve-node-1"
+pm_password     = "password"
+pm_target_node  = "local"
 pm_storage      = "local-lvm"
 pm_bridge       = "vmbr0"
 pm_vlan         = 100
-pm_gateway      = "192.168.100.1"
+pm_gateway      = "192.168.1.1"
 
 vm_template = "template"
 

@@ -6,6 +6,12 @@ variable "pm_user" {
   type = string
 }
 
+variable "pm_tls_insecure" {
+  description = "Whether to allow insecure TLS connections"
+  type        = bool
+  default     = false  # opzionale, se vuoi un valore di default
+}
+
 variable "pm_password" {
   type      = string
   sensitive = true
