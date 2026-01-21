@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     proxmox = {
-      source = "Telmate/proxmox"
+      source  = "Telmate/proxmox"
       version = "3.0.2-rc07"
     }
   }
@@ -19,27 +19,27 @@ resource "proxmox_vm_qemu" "vm" {
 
   name        = var.vm_definitions[count.index].name
   target_node = var.pm_target_node
-  clone       = var.vm_template
-  os_type     = "cloud-init"
 
-  memory  = var.vm_definitions[count.index].memory
+  # Clone da VM template Proxmox (template: 1)
+  clone      = var.vm_template
+  full_clone = true
 
-  scsihw = "virtio-scsi-pci"
-  boot   = "order=scsi0"
+  os_type = "cloud-init"
 
-  disk {
-    slot     = "scsi0"
-    size     = var.vm_definitions[count.index].disk
-    type     = "disk"
-    storage  = var.pm_storage
-    iothread = true
-  }
+  # Risorse compute
+  memory = var.vm_definitions[count.index].memory
 
   cpu {
     sockets = 1
     cores   = var.vm_definitions[count.index].cores
   }
 
+  # IMPORTANTISSIMO:
+  # NON definire alcun disco qui.
+  # Il disco viene ereditato integralmente dal template.
+  scsihw = "virtio-scsi-pci"
+
+  # Rete
   network {
     id     = 0
     model  = "virtio"
@@ -47,8 +47,10 @@ resource "proxmox_vm_qemu" "vm" {
     tag    = tostring(var.pm_vlan)
   }
 
+  # Cloud-init networking
   ipconfig0 = "ip=${var.vm_definitions[count.index].ip}/24,gw=${var.pm_gateway}"
 
+  # Cloud-init user
   ciuser  = var.ci_user
   sshkeys = var.ci_ssh_key
 
