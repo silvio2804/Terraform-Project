@@ -20,13 +20,10 @@ resource "proxmox_vm_qemu" "vm" {
   name        = var.vm_definitions[count.index].name
   target_node = var.pm_target_node
 
-  # Clone da VM template Proxmox (template: 1)
-  clone      = var.vm_template
+  clone      = "almalinux-cloud"
   full_clone = true
+  os_type    = "cloud-init"
 
-  os_type = "cloud-init"
-
-  # Risorse compute
   memory = var.vm_definitions[count.index].memory
 
   cpu {
@@ -34,12 +31,6 @@ resource "proxmox_vm_qemu" "vm" {
     cores   = var.vm_definitions[count.index].cores
   }
 
-  # IMPORTANTISSIMO:
-  # NON definire alcun disco qui.
-  # Il disco viene ereditato integralmente dal template.
-  scsihw = "virtio-scsi-pci"
-
-  # Rete
   network {
     id     = 0
     model  = "virtio"
@@ -47,12 +38,21 @@ resource "proxmox_vm_qemu" "vm" {
     tag    = tostring(var.pm_vlan)
   }
 
-  # Cloud-init networking
   ipconfig0 = "ip=${var.vm_definitions[count.index].ip}/24,gw=${var.pm_gateway}"
 
-  # Cloud-init user
   ciuser  = var.ci_user
   sshkeys = var.ci_ssh_key
 
   agent = 1
+
+  lifecycle {
+    ignore_changes = [
+      disk,
+      boot,
+      scsihw
+      //ide2
+    ]
+  }
 }
+
+
