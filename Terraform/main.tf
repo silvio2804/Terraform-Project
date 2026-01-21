@@ -22,25 +22,29 @@ resource "proxmox_vm_qemu" "vm" {
   clone       = var.vm_template
   os_type     = "cloud-init"
 
-  cores   = var.vm_definitions[count.index].cores
   memory  = var.vm_definitions[count.index].memory
-  sockets = 1
 
   scsihw = "virtio-scsi-pci"
   boot   = "order=scsi0"
 
   disk {
-    slot     = 0
+    slot     = "scsi0"
     size     = var.vm_definitions[count.index].disk
-    type     = "scsi"
+    type     = "disk"
     storage  = var.pm_storage
-    iothread = 1
+    iothread = true
+  }
+
+  cpu {
+    sockets = 1
+    cores   = var.vm_definitions[count.index].cores
   }
 
   network {
+    id     = 0
     model  = "virtio"
     bridge = var.pm_bridge
-    tag    = var.pm_vlan
+    tag    = tostring(var.pm_vlan)
   }
 
   ipconfig0 = "ip=${var.vm_definitions[count.index].ip}/24,gw=${var.pm_gateway}"
