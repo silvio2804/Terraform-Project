@@ -15,11 +15,40 @@ ci_ssh_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAaL6ZpiCzkbjN2feimCco5TeaGEQs
 
 vm_definitions = [
   {
-    name   = "alma-vm1"
+    name   = "ansible"
+    memory = 2048
+    cores  = 2
+    disk   = "10G"
+    ip     = "192.168.1.5"
+  },
+  {
+    name   = "k8s-cp"
     memory = 2048
     cores  = 2
     disk   = "20G"
-    ip     = "192.168.100.10"
+    ip     = "192.168.1.6"
+  },
+  {
+    name   = "k8s-worker1"
+    memory = 2048
+    cores  = 2
+    disk   = "20G"
+    ip     = "192.168.1.7"
+  },
+  {
+    name   = "k8s-worker2"
+    memory = 2048
+    cores  = 2
+    disk   = "20G"
+    ip     = "192.168.1.8"
+  },
+  {
+    name   = "k8s-nfs"
+    memory = 2048
+    cores  = 2
+    disk   = "30G"
+    ip     = "192.168.1.9"
   }
+
 ]
 
