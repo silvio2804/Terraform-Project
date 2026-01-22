@@ -46,7 +46,7 @@ variable "ci_user" {
   type = string
 }
 
-variable "ci_user" {
+variable "ci_password" {
   type = string
 }
 

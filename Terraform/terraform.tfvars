@@ -9,6 +9,8 @@ pm_gateway      = "192.168.1.1"
 
 
 ci_user    = "silvio"
+ci_password = "silvio"
+
 ci_ssh_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAaL6ZpiCzkbjN2feimCco5TeaGEQs4UEXVC0WWX/1rH silviove@silviove"
 
 vm_definitions = [

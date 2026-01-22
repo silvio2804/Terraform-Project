@@ -30,16 +30,13 @@ resource "proxmox_vm_qemu" "vm" {
 
   scsihw = "virtio-scsi-single"
 
-  # Disco da zero
   disk {
-    size    = var.vm_definitions[count.index].disk
-    #type    = "scsi"
-    storage = var.pm_storage
+    slot     = "scsi0"
+    storage  = "local"
+    file     = "almalinux-base.qcow2"
     iothread = true
-    disk_file  = "local-lvm:vm-100-disk-0"
-    passthrough = true
-    slot    = "scsi0"
   }
+
 
   # Rete
   network {
