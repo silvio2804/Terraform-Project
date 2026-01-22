@@ -31,24 +31,25 @@ resource "proxmox_vm_qemu" "vm" {
 
   scsihw = "virtio-scsi-single"
 
-  disk {
-    slot      = "scsi0"
-    storage   = "local-lvm"
-    size      = 10  # valore minimo, non sovrascrive il disco esistente se full_clone
-  }
-
-/*
-  disks {
+disks {
+    # Disco principale (il tuo .qcow2 clonato)
     scsi {
       scsi0 {
         disk {
-          storage = "local"
-          size    = 100
+          size    = "10G"
+          storage = "local-lvm"
+        }
+      }
+    }
+    # Drive Cloud-Init
+    ide {
+      ide2 {
+        cloudinit {
+          storage = "local-lvm"
         }
       }
     }
   }
-*/
 
   # Rete
   network {
