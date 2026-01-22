@@ -59,3 +59,8 @@ variable "vm_definitions" {
     ip     = string
   }))
 }
+
+variable "proxmox_template_name" {
+  type        = string
+  description = "Nome del template Proxmox (es. almalinux-9.4-cloud-202501)"
+}

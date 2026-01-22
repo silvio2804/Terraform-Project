@@ -7,7 +7,7 @@ pm_bridge       = "vmbr0"
 pm_vlan         = 100
 pm_gateway      = "192.168.1.1"
 
-vm_template = "origin"
+vm_template = "alma-template"
 
 ci_user    = "silvio"
 ci_ssh_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAaL6ZpiCzkbjN2feimCco5TeaGEQs4UEXVC0WWX/1rH silviove@silviove"
