@@ -7,18 +7,17 @@ pm_bridge       = "vmbr0"
 pm_vlan         = 100
 pm_gateway      = "192.168.1.1"
 
-vm_template = "alma-template"
 
 ci_user    = "silvio"
 ci_ssh_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAaL6ZpiCzkbjN2feimCco5TeaGEQs4UEXVC0WWX/1rH silviove@silviove"
 
 vm_definitions = [
   {
-    name   = "test-vm-1"
-    cores  = 2
+    name   = "alma-vm1"
     memory = 2048
+    cores  = 2
     disk   = "20G"
-    ip     = "192.168.100.50"
+    ip     = "192.168.100.10"
   }
 ]
 

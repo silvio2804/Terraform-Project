@@ -9,7 +9,7 @@ variable "pm_user" {
 variable "pm_tls_insecure" {
   description = "Whether to allow insecure TLS connections"
   type        = bool
-  default     = false  # opzionale, se vuoi un valore di default
+  default     = true  # opzionale, se vuoi un valore di default
 }
 
 variable "pm_password" {
