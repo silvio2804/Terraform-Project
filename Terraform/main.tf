@@ -17,10 +17,11 @@ provider "proxmox" {
 
 resource "proxmox_vm_qemu" "vm" {
   count = length(var.vm_definitions)
-
   name        = var.vm_definitions[count.index].name
   target_node = var.pm_target_node
   os_type     = "cloud-init"
+  clone       = "almalinux-cloud"
+  full_clone  = true
 
   memory = var.vm_definitions[count.index].memory
 
@@ -31,19 +32,35 @@ resource "proxmox_vm_qemu" "vm" {
   scsihw = "virtio-scsi-single"
 
   disk {
-    slot     = "scsi0"
-    storage  = "local"
-    file     = "almalinux-base.qcow2"
-    iothread = true
+    slot      = "scsi0"
+    storage   = "local-lvm"
+    size      = 10  # valore minimo, non sovrascrive il disco esistente se full_clone
   }
 
+/*
+  disks {
+    scsi {
+      scsi0 {
+        disk {
+          storage = "local"
+          size    = 100
+        }
+      }
+    }
+  }
+*/
 
   # Rete
   network {
     id     = 0
     model  = "virtio"
     bridge = var.pm_bridge
-    tag    = tostring(var.pm_vlan)
+    #tag    = tostring(var.pm_vlan)
+  }
+
+ serial {
+    id   = 0
+    type = "socket"
   }
 
   # Cloud-init
@@ -53,6 +70,13 @@ resource "proxmox_vm_qemu" "vm" {
   ipconfig0 = "ip=${var.vm_definitions[count.index].ip}/24,gw=${var.pm_gateway}"
 
   agent = 1
+
+  lifecycle {
+    ignore_changes = [
+      disks,
+      boot,
+    ]
+  }
 }
 
 
