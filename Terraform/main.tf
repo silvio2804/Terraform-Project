@@ -8,10 +8,10 @@ terraform {
 }
 
 provider "proxmox" {
-  pm_api_url      = var.pm_api_url
-  pm_user         = var.pm_user
-  pm_password     = var.pm_user
-  pm_tls_insecure = var.pm_tls_insecure
+  pm_api_url      = "https://192.168.1.135:8006/api2/json"
+  pm_user         = "terraform@pve"
+  pm_password     = "password"
+  pm_tls_insecure = true
 }
 
 
@@ -23,16 +23,22 @@ resource "proxmox_vm_qemu" "vm" {
   os_type     = "cloud-init"
 
   memory = var.vm_definitions[count.index].memory
-  cores  = var.vm_definitions[count.index].cores
-  scsihw = "virtio-scsi-pci"
+
+  cpu { 
+    cores =var.vm_definitions[count.index].cores 
+  }
+
+  scsihw = "virtio-scsi-single"
 
   # Disco da zero
   disk {
-    slot    = 0
     size    = var.vm_definitions[count.index].disk
-    type    = "scsi"
+    #type    = "scsi"
     storage = var.pm_storage
     iothread = true
+    disk_file  = "local-lvm:vm-100-disk-0"
+    passthrough = true
+    slot    = "scsi0"
   }
 
   # Rete
@@ -45,6 +51,7 @@ resource "proxmox_vm_qemu" "vm" {
 
   # Cloud-init
   ciuser   = var.ci_user
+  cipassword = var.ci_password
   sshkeys  = var.ci_ssh_key
   ipconfig0 = "ip=${var.vm_definitions[count.index].ip}/24,gw=${var.pm_gateway}"
 
