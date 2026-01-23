@@ -11,7 +11,11 @@ pm_gateway      = "192.168.1.1"
 ci_user    = "silvio"
 ci_password = "silvio"
 
-ci_ssh_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAaL6ZpiCzkbjN2feimCco5TeaGEQs4UEXVC0WWX/1rH silviove@silviove"
+//ci_ssh_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAaL6ZpiCzkbjN2feimCco5TeaGEQs4UEXVC0WWX/1rH silviove@silviove"
+ci_ssh_key = <<EOF
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAaL6ZpiCzkbjN2feimCco5TeaGEQs4UEXVC0WWX/1rH silviove@silviove
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOOI1Am4P7u3GT8ceiFkBrW4uWuyd4+Om8s1v0whk2xE silvio@ansible
+EOF
 
 vm_definitions = [
   {
@@ -22,28 +26,28 @@ vm_definitions = [
     ip     = "192.168.1.5"
   },
   {
-    name   = "k8s-cp"
+    name   = "master"
     memory = 2048
     cores  = 2
     disk   = "20G"
     ip     = "192.168.1.6"
   },
   {
-    name   = "k8s-worker1"
+    name   = "worker1"
     memory = 2048
     cores  = 2
     disk   = "20G"
     ip     = "192.168.1.7"
   },
   {
-    name   = "k8s-worker2"
+    name   = "worker2"
     memory = 2048
     cores  = 2
     disk   = "20G"
     ip     = "192.168.1.8"
   },
   {
-    name   = "k8s-nfs"
+    name   = "nfs"
     memory = 2048
     cores  = 2
     disk   = "30G"
