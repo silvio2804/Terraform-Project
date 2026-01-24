@@ -1,0 +1,113 @@
+---
+- name: Reset Kubernetes cluster nodes
+  hosts: masters:workers:nfs
+  become: true
+  serial: 1   # evita reboot simultanei
+  vars:
+    kube_pkgs:
+      - kubeadm
+      - kubelet
+      - kubectl
+
+  tasks:
+
+    - name: Stop kubelet if running
+      systemd:
+        name: kubelet
+        state: stopped
+        enabled: false
+      ignore_errors: true
+
+    - name: Reset kubeadm
+      command: kubeadm reset -f
+      ignore_errors: true
+
+    - name: Unmount calico mounts if present
+      shell: |
+        mount | grep /var/run/calico | awk '{print $3}' | xargs -r umount -l
+      args:
+        warn: false
+      ignore_errors: true
+
+    - name: Remove Kubernetes directories
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/kubernetes
+        - /var/lib/kubelet
+
+    - name: Remove CNI directories
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/cni
+        - /opt/cni
+        - /var/lib/cni
+        - /var/run/calico
+
+    - name: Stop containerd
+      systemd:
+        name: containerd
+        state: stopped
+      ignore_errors: true
+
+    - name: Remove containerd data
+      file:
+        path: /var/lib/containerd
+        state: absent
+
+    - name: Start containerd
+      systemd:
+        name: containerd
+        state: started
+
+    - name: Flush iptables
+      command: "{{ item }}"
+      loop:
+        - iptables --flush
+        - iptables -t nat --flush
+      ignore_errors: true
+
+    - name: Bring down CNI interfaces if present
+      command: ip link set {{ item }} down
+      loop:
+        - cni0
+        - flannel.1
+      ignore_errors: true
+
+    - name: Delete CNI interfaces if present
+      command: ip link delete {{ item }}
+      loop:
+        - cni0
+        - flannel.1
+      ignore_errors: true
+
+    - name: Remove kubelet systemd unit override if present
+      file:
+        path: /etc/systemd/system/kubelet.service
+        state: absent
+
+    - name: Reload systemd
+      command: systemctl daemon-reload
+
+    - name: Remove Kubernetes packages
+      dnf:
+        name: "{{ kube_pkgs }}"
+        state: absent
+      ignore_errors: true
+
+    - name: Remove kubeconfig
+      file:
+        path: /root/.kube
+        state: absent
+
+    - name: Remove kube join command if present
+      file:
+        path: /etc/kube_join_command
+        state: absent
+
+    - name: Reboot node
+      reboot:
+        reboot_timeout: 600

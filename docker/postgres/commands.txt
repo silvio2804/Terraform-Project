@@ -1,0 +1,2 @@
+docker build -t ehr-db:latest .
+docker run -d --name ehr-db -p 5432:5432 ehr-db:latest
