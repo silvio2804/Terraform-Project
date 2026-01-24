@@ -35,4 +35,5 @@ chmod 600 .ssh/id_ed25519
 
 
 sudo dnf install -y epel-release ansible-core
-git clone https://github.com/silvio2804/Kubernetes-Ansible.git
+git clone https://github.com/silvio2804/Ansible-repo.git
+

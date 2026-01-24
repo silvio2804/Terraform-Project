@@ -1,2 +1,1 @@
-# Ignore SSH keys
-L2-test-env/ansible/id_ed25519.pub
+L2-test-env/ansible/key_management/id_ed25519
