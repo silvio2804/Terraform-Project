@@ -18,7 +18,7 @@ provider "proxmox" {
 resource "proxmox_vm_qemu" "vm" {
   count = length(var.vm_definitions)
   name        = var.vm_definitions[count.index].name
-  target_node = var.pm_target_node
+  target_node = var.vm_definitions[count.index].target_node
   os_type     = "cloud-init"
   clone       = "almalinux-cloud"
   full_clone  = true
