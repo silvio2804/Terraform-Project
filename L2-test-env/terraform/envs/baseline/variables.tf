@@ -57,6 +57,7 @@ variable "ci_ssh_key" {
 variable "vm_definitions" {
   type = list(object({
     name   = string
+    target_node = string
     cores  = number
     memory = number
     disk   = string

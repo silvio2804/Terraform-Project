@@ -20,6 +20,7 @@ EOF
 vm_definitions = [
   {
     name   = "ansible"
+    target_node = "local"
     memory = 2048
     cores  = 2
     disk   = "10G"
@@ -27,27 +28,31 @@ vm_definitions = [
   },
   {
     name   = "master"
-    memory = 2048
-    cores  = 2
+    target_node = "local"
+    memory = 4096
+    cores  = 3
     disk   = "20G"
     ip     = "192.168.1.6"
   },
   {
     name   = "worker1"
-    memory = 2048
+    target_node = "server2"
+    memory = 3072
     cores  = 2
     disk   = "20G"
     ip     = "192.168.1.7"
   },
   {
     name   = "worker2"
-    memory = 2048
+    target_node = "server2"
+    memory = 3072
     cores  = 2
     disk   = "20G"
     ip     = "192.168.1.8"
   },
   {
     name   = "nfs"
+    target_node = "server2"
     memory = 2048
     cores  = 2
     disk   = "30G"
