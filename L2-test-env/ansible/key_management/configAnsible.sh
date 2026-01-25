@@ -37,3 +37,22 @@ chmod 600 .ssh/id_ed25519
 sudo dnf install -y epel-release ansible-core
 git clone https://github.com/silvio2804/Ansible-repo.git
 
+# Crea la directory .ssh se non esiste e imposta i permessi corretti
+mkdir -p ~/.ssh && chmod 700 ~/.ssh
+
+# Definisce il blocco di configurazione
+SSH_CONFIG="Host 192.168.1.*
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    LogLevel ERROR"
+
+# Aggiunge al file config senza duplicare se lo script viene eseguito di nuovo
+if ! grep -q "Host 192.168.1.\*" ~/.ssh/config 2>/dev/null; then
+    echo -e "\n$SSH_CONFIG" >> ~/.ssh/config
+    echo "Configurazione aggiunta con successo a ~/.ssh/config"
+else
+    echo "La configurazione per 192.168.1.* esiste già."
+fi
+
+# Imposta i permessi corretti per il file config
+chmod 600 ~/.ssh/config
