@@ -80,6 +80,8 @@ resource "proxmox_vm_qemu" "vm" {
     }
 
 }
+
+
 /*
 resource "null_resource" "ansible_bootstrap" {
   depends_on = [proxmox_vm_qemu.vm]
@@ -87,23 +89,53 @@ resource "null_resource" "ansible_bootstrap" {
   connection {
     type        = "ssh"
     user        = var.ci_user
-    private_key = file("~/.ssh/id_ansible")
-    host        = var.vm_definitions[0].ip
+    private_key = file("~/.ssh/id_ed25519")
+    host        = [for vm in var.vm_definitions : vm.ip if vm.name == "ansible"][0]
+    
+    # TRUCCO 1: Evita /tmp che potrebbe avere permessi noexec o essere lockato
+    script_path = "/home/${var.ci_user}/terraform_script.sh"
+    
+    # TRUCCO 2: Aumenta il timeout di connessione
+    timeout     = "5m"
   }
 
   provisioner "remote-exec" {
     inline = [
-      "sudo dnf install -y epel-release",
-      "sudo dnf install -y ansible-core git",
+      # TRUCCO 3: Aspetta che Cloud-Init abbia finito davvero
+      "while [ ! -f /var/lib/cloud/instance/boot-finished ]; do echo 'Waiting for cloud-init...'; sleep 2; done",
+      
+      # Opzionale: pulizia se una run precedente è fallita
+      "rm -rf ~/Ansible-repo",
+      
+      "git clone https://github.com/silvio2804/Ansible-repo.git ~/Ansible-repo"
     ]
+  }
+}
+
+
+
+
+  # Trasferimento chiave privata 
+  provisioner "file" {
+    source      = "./id_ed25519" #chiave di ansible
+    destination = "/home/${var.ci_user}/"
   }
 
   provisioner "file" {
-    source      = "../ansible/"
-    destination = "/home/${var.ci_user}/ansible"
-  }
-}
-*/
+    source      = "./id_ed25519"
+    destination = "/home/${var.ci_user}/.ssh/id_ed25519"
+
+  # Forza l'uso di SCP invece di SFTP
+  connection {
+    type     = "ssh"
+    user     = var.ci_user
+    host     = "192.168.1.5" # o l'IP del nodo
+    use_sftp = false
+    }
+}*/
+
+
+
 
 
 
