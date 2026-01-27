@@ -1,2 +1,16 @@
-docker build -t ehr-db:latest .
-docker run -d --name ehr-db -p 5432:5432 ehr-db:latest
+sudo docker network create ehr-net
+
+sudo docker build -t ehr-db .
+
+sudo docker run -d \
+  --name ehr-db \
+  --network ehr-net \
+  -e POSTGRES_DB=ehr \
+  -e POSTGRES_PASSWORD=secret \
+  -p 5432:5432 \
+  ehr-db
+
+# accedere 
+sudo docker exec -it ehr-db psql -U postgres -d ehr
+
+sudo docker logs ehr-db
