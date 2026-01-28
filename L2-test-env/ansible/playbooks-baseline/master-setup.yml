@@ -8,78 +8,70 @@
         enabled: yes
         state: started
 
+    - name: Check if cluster is already initialized
+      stat:
+        path: /etc/kubernetes/admin.conf
+      register: kube_init_check
+
     - name: Initialize Kubernetes cluster
       shell: kubeadm init --pod-network-cidr=10.244.0.0/16
       async: 600
       poll: 10
       register: kubeadm_init_output
-      failed_when: kubeadm_init_output.rc != 0
+      when: not kube_init_check.stat.exists
+      failed_when: 
+        - kubeadm_init_output.rc is defined 
+        - kubeadm_init_output.rc != 0
 
     - name: Debug kubeadm init output
       debug:
         var: kubeadm_init_output.stdout
+      when: kubeadm_init_output.stdout is defined
 
-    - name: Create .kube directory for root
+    - name: Create .kube directory for silvio
       file:
-        path: /root/.kube
+        path: "/home/silvio/.kube"
         state: directory
-        mode: 0755
+        owner: silvio
+        group: silvio
+        mode: '0755'
 
-    - name: Ensure .kube directory exists
-      file:
-        path: "/root/.kube"
-        state: directory
-        mode: 0755
-
-    - name: Copy admin.conf to root's kubeconfig
+    - name: Copy admin.conf to silvio's kubeconfig
       copy:
         src: /etc/kubernetes/admin.conf
-        dest: /root/.kube/config
+        dest: /home/silvio/.kube/config
         remote_src: yes
-        owner: root
-        group: root
-        mode: 0755
+        owner: silvio
+        group: silvio
+        mode: '0600'  # Permessi ristretti per sicurezza
 
-    - name: Set KUBECONFIG environment variable for root
+    - name: Set KUBECONFIG environment variable for silvio
       lineinfile:
-        path: "/root/.bashrc"
-        line: "export KUBECONFIG=/root/.kube/config"
+        path: "/home/silvio/.bashrc"
+        line: "export KUBECONFIG=$HOME/.kube/config"
         create: yes
+        owner: silvio
+        group: silvio
 
     - name: Wait for Kubernetes API to be ready
-      shell: until kubectl get nodes; do sleep 10; done
+      shell: kubectl --kubeconfig /etc/kubernetes/admin.conf get nodes
+      register: kube_ready
+      until: kube_ready.rc == 0
       retries: 30
       delay: 10
-      register: kube_ready
-      failed_when: kube_ready.rc != 0
 
     - name: Apply Calico network manifest
-      shell: kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/calico.yaml
-      when: kube_ready.rc == 0
+      shell: kubectl --kubeconfig /etc/kubernetes/admin.conf apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.26.1/manifests/calico.yaml
       register: calico_output
-      ignore_errors: yes
-
-    - name: Debug Calico installation output
-      debug:
-        var: calico_output.stdout
-      when: calico_output is defined
-
-    - name: Check for errors in Calico installation
-      debug:
-        msg: "Error in Calico installation: {{ calico_output.stderr }}"
-      when: calico_output.stderr is defined and calico_output.stderr != ""
-
-    - name: Wait for kubeadm to be ready
-      shell: until kubeadm token create --print-join-command; do sleep 10; done
-      retries: 30
-      delay: 10
-      register: kube_token
-      failed_when: kube_token.rc != 0
+      changed_when: "'created' in calico_output.stdout or 'configured' in calico_output.stdout"
 
     - name: Generate join command for worker nodes
       shell: kubeadm token create --print-join-command
-      when: kube_token.rc == 0
       register: kube_join_command
 
     - name: Save join command to a local file
-      local_action: copy content="{{ kube_join_command.stdout_lines[0] }}" dest="./kube_join_command" mode=0777
+      local_action: 
+        module: copy 
+        content: "{{ kube_join_command.stdout }}" 
+        dest: "./kube_join_command" 
+        mode: '0644'

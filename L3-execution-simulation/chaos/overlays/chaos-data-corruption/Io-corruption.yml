@@ -1,0 +1,12 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: IOChaos
+spec:
+  action: corrupt
+  mode: one
+  selector:
+    labelSelectors:
+      app: postgres
+  volumePath: /var/lib/postgresql/data
+  corruption:
+    percent: 30
+  duration: "10m"

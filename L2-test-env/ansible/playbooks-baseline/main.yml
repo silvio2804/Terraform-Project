@@ -1,46 +1,79 @@
-- name: Deploy Apache server on Kubernetes
+---
+# --- BLOCCO 1: CONFIGURAZIONE SERVER NFS ---
+- name: Setup NFS Server Essential (AlmaLinux)
+  hosts: nfs
+  become: yes
+  tasks:
+    - name: Install nfs-utils
+      dnf: 
+        name: nfs-utils 
+        state: present
+
+    - name: Setup Directory and Service
+      shell: |
+        mkdir -p /var/web
+        chmod 777 /var/web
+        systemctl enable --now nfs-server
+
+    - name: Configure Exports
+      lineinfile:
+        path: /etc/exports
+        line: "/var/web 192.168.1.0/24(rw,sync,no_subtree_check,no_root_squash)"
+
+    - name: Apply Exports
+      command: exportfs -ra
+
+# --- BLOCCO 2: DEPLOY SU KUBERNETES ---
+- name: Deploy ehr server on Kubernetes
   hosts: master
   become: yes
   tasks:
-    - name: Copy pvc and pvs manifest
+    # --- SEZIONE COPIA FILE ---
+    - name: Copy nfs manifest
       copy:
-        src: config/nfs.yml
-        dest: /root/nfs.yml
+        src: nfs.yml
+        dest: /home/silvio/nfs.yml
+        owner: silvio
+        group: silvio
 
-    - name: Apply nfs.yml
-      shell: kubectl apply -f /root/nfs.yml
-
-    - name: Copy Apache deployment manifest
+    - name: Copy ehr deployment manifest
       copy:
-        src: config/apache-deployment-nfs.yml
-        dest: /root/apache-deployment-nfs.yml
+        src: ehr-backend-deployment.yml
+        dest: /home/silvio/ehr-backend-deployment.yml
+        owner: silvio
+        group: silvio
 
-    - name: Apply Apache deployment
-      shell: kubectl apply -f /root/apache-deployment-nfs.yml
-
-    - name: Configure Horizontal Pod Autoscaler
-      shell: kubectl autoscale deployment apache-php-server --cpu-percent=25 --min=2 --max=5
+    - name: Copy postgres deployment manifest
+      copy:
+        src: postgres-deployment.yml
+        dest: /home/silvio/postgres-deployment.yml
+        owner: silvio
+        group: silvio 
 
     - name: Copy Metric Server manifest
       copy:
-        src: config/metric-server.yml
-        dest: /root/metric-server.yml
+        src: metric-server.yml
+        dest: /home/silvio/metric-server.yml
+        owner: silvio
+        group: silvio
+
+    # --- SEZIONE APPLICAZIONE ---
+    - name: Apply nfs.yml
+      command: kubectl --kubeconfig /etc/kubernetes/admin.conf apply -f /home/silvio/nfs.yml
 
     - name: Install Metric Server
-      shell: kubectl apply -f /root/metric-server.yml
+      command: kubectl --kubeconfig /etc/kubernetes/admin.conf apply -f /home/silvio/metric-server.yml
 
-    - name: Apply MetalLB manifest
-      shell: kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/main/config/manifests/metallb-native.yaml
-
-    - name: Wait MetalLB be ready
-      shell: kubectl wait --namespace metallb-system --for=condition=Ready pod --all --timeout=120s
-      async: 120
-      poll: 5
-
-    - name: Copy MetalLB configuration
-      copy:
-        src: config/deploy_metallb.yml
-        dest: /root/deploy_metallb.yml
-
-    - name: Apply MetalLB configuration
-      shell: kubectl apply -f /root/deploy_metallb.yml
+    - name: Apply postgres deployment
+      command: kubectl --kubeconfig /etc/kubernetes/admin.conf apply -f /home/silvio/postgres-deployment.yml
+    
+    - name: Apply ehr-backend deployment
+      command: kubectl --kubeconfig /etc/kubernetes/admin.conf apply -f /home/silvio/ehr-backend-deployment.yml
+    
+    # --- SEZIONE AUTOSCALING ---
+    - name: Configure Horizontal Pod Autoscaler
+      shell: |
+        kubectl --kubeconfig /etc/kubernetes/admin.conf autoscale deployment ehr-backend --cpu-percent=25 --min=2 --max=3
+      register: hpa_result
+      failed_when: false
+      changed_when: "'autoscaled' in hpa_result.stdout"

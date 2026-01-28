@@ -8,9 +8,9 @@
 - Clinical Documentation
 
 ## Asset coinvolti
-- PostgreSQL EHR database
-- Kubernetes Persistent Volumes e worker node
-- Proxmox server e storage NFS dedicato
+- Database: PostgreSQL EHR
+- Persistent Volumes e worker node: Kubernetes 
+- storage NFS dedicato della VM: Proxmox server
 
 ## Fault innescato
 - **Categoria primaria:** Data-Level Fault
