@@ -9,14 +9,15 @@ from sqlalchemy import (
     String,
     Text,
     DateTime,
-    ForeignKey
+    ForeignKey,
+    text
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 
 # -------------------------------------------------------------------
-# Database config (via env vars, K8s-friendly)
+# Database config
 # -------------------------------------------------------------------
 
 DB_HOST = os.getenv("DB_HOST", "localhost")
@@ -25,14 +26,10 @@ DB_NAME = os.getenv("DB_NAME", "ehr")
 DB_USER = os.getenv("DB_USER", "postgres")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "secret")
 
-DATABASE_URL = (
-    f"postgresql://{DB_USER}:{DB_PASSWORD}@"
-    f"{DB_HOST}:{DB_PORT}/{DB_NAME}"
-)
+DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
-
 Base = declarative_base()
 
 # -------------------------------------------------------------------
@@ -41,47 +38,51 @@ Base = declarative_base()
 
 class Patient(Base):
     __tablename__ = "patients"
-
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)
+    tax_code = Column(String, unique=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relazione verso Encounter
+    encounters = relationship("Encounter", back_populates="patient", cascade="all, delete-orphan")
 
-    records = relationship("ClinicalRecord", back_populates="patient")
-
-
-class ClinicalRecord(Base):
-    __tablename__ = "clinical_records"
-
+class Encounter(Base):
+    __tablename__ = "encounters"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     patient_id = Column(UUID(as_uuid=True), ForeignKey("patients.id"))
+    encounter_type = Column(String, nullable=False)
+    admitted_at = Column(DateTime, default=datetime.utcnow)
+    
+    patient = relationship("Patient", back_populates="encounters")
+    notes = relationship("ClinicalNote", back_populates="encounter", cascade="all, delete-orphan")
+
+class ClinicalNote(Base):
+    __tablename__ = "clinical_notes"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    encounter_id = Column(UUID(as_uuid=True), ForeignKey("encounters.id"))
+    patient_id = Column(UUID(as_uuid=True), ForeignKey("patients.id"))
+    note_type = Column(String, nullable=False)
     content = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-
-    patient = relationship("Patient", back_populates="records")
-
+    
+    encounter = relationship("Encounter", back_populates="notes")
 
 class AuditLog(Base):
     __tablename__ = "audit_log"
-
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     event_type = Column(String, nullable=False)
     patient_id = Column(UUID(as_uuid=True), nullable=True)
     timestamp = Column(DateTime, default=datetime.utcnow)
 
 # -------------------------------------------------------------------
-# App init
+# App init & Utilities
 # -------------------------------------------------------------------
 
-app = FastAPI(title="Minimal EHR Backend")
+app = FastAPI(title="EHR Backend - Recovery Scenario S1")
 
 @app.on_event("startup")
 def startup():
-    # Creates tables if they don't exist
     Base.metadata.create_all(bind=engine)
-
-# -------------------------------------------------------------------
-# Utilities
-# -------------------------------------------------------------------
 
 def get_db():
     db = SessionLocal()
@@ -91,95 +92,72 @@ def get_db():
         db.close()
 
 # -------------------------------------------------------------------
-# Health (for probes & recovery timing)
+# Endpoints
 # -------------------------------------------------------------------
 
 @app.get("/health")
 def health():
     try:
-        db = SessionLocal()
-        db.execute("SELECT 1")
+        db = get_db()
+        db.execute(text("SELECT 1"))
         return {"status": "ok"}
     except Exception:
         raise HTTPException(status_code=503, detail="DB unavailable")
 
-# -------------------------------------------------------------------
-# Patients
-# -------------------------------------------------------------------
-
 @app.post("/patients")
-def create_patient(name: str):
+def create_patient(name: str, tax_code: str):
     db = get_db()
-    patient = Patient(name=name)
+    patient = Patient(name=name, tax_code=tax_code)
     db.add(patient)
     db.commit()
     db.refresh(patient)
     return patient
 
-@app.get("/patients/{patient_id}")
-def get_patient(patient_id: uuid.UUID):
+@app.post("/seed-data")
+def seed_data(num_patients: int = 100):
     db = get_db()
-    patient = db.query(Patient).filter(Patient.id == patient_id).first()
-    if not patient:
-        raise HTTPException(status_code=404, detail="Patient not found")
-    return patient
+    try:
+        for i in range(num_patients):
+            p = Patient(name=f"Patient {uuid.uuid4().hex[:8]}", tax_code=f"TX-{uuid.uuid4().hex[:10]}")
+            db.add(p)
+            db.flush() 
+            
+            for _ in range(4):
+                e = Encounter(patient_id=p.id, encounter_type="ROUTINE")
+                db.add(e)
+                db.flush()
+                
+                for _ in range(10):
+                    n = ClinicalNote(
+                        encounter_id=e.id, 
+                        patient_id=p.id, 
+                        note_type="PROGRESS_NOTE", 
+                        content="Dato clinico rilevante per test recovery..." * 50
+                    )
+                    db.add(n)
+        db.commit()
+        return {"message": f"Seeding completato per {num_patients} pazienti"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
-# -------------------------------------------------------------------
-# Clinical Documentation
-# -------------------------------------------------------------------
-
-@app.post("/records")
-def create_record(patient_id: uuid.UUID, content: str):
+@app.get("/stats")
+def get_database_stats():
     db = get_db()
-
-    patient = db.query(Patient).filter(Patient.id == patient_id).first()
-    if not patient:
-        raise HTTPException(status_code=404, detail="Patient not found")
-
-    record = ClinicalRecord(
-        patient_id=patient_id,
-        content=content
-    )
-
-    audit = AuditLog(
-        event_type="CREATE_RECORD",
-        patient_id=patient_id
-    )
-
-    db.add(record)
-    db.add(audit)
-    db.commit()
-    db.refresh(record)
-
-    return record
-
-@app.get("/records/{patient_id}")
-def get_records(patient_id: uuid.UUID):
-    db = get_db()
-    records = (
-        db.query(ClinicalRecord)
-        .filter(ClinicalRecord.patient_id == patient_id)
-        .all()
-    )
-    return records
-
-# -------------------------------------------------------------------
-# Break-the-Glass (Emergency Access)
-# -------------------------------------------------------------------
-
-@app.post("/break-glass")
-def break_glass(patient_id: uuid.UUID):
-    db = get_db()
-
-    audit = AuditLog(
-        event_type="BREAK_GLASS_ACCESS",
-        patient_id=patient_id
-    )
-
-    db.add(audit)
-    db.commit()
-
     return {
-        "status": "emergency_access_logged",
-        "patient_id": patient_id
+        "patients": db.query(Patient).count(),
+        "encounters": db.query(Encounter).count(),
+        "clinical_notes": db.query(ClinicalNote).count()
     }
+
+@app.delete("/teardown/all")
+def hard_reset_database():
+    db = get_db()
+    try:
+        # Pulizia radicale per reset esperimento
+        db.execute(text("TRUNCATE patients, encounters, clinical_notes, audit_log RESTART IDENTITY CASCADE;"))
+        db.commit()
+        return {"status": "success", "message": "DB pulito"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))

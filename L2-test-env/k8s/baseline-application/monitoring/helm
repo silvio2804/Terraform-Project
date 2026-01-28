@@ -1,0 +1,17 @@
+# Aggiungi il repo
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+
+# Installa lo stack nel namespace monitoring
+helm install monitor-system prometheus-community/kube-prometheus-stack \
+  --create-namespace \
+  --namespace monitoring
+
+
+  kubectl get pods -n monitoring -w
+
+# Node port
+
+kubectl get svc -n monitoring | grep grafana
+
+kubectl patch svc monitor-system-grafana -n monitoring -p '{"spec": {"type": "NodePort"}}

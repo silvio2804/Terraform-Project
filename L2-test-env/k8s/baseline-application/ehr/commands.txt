@@ -1,2 +1,5 @@
-docker build -t ehr-backend:latest .
-docker run -e DB_HOST=host.docker.internal -p 8000:8000 ehr-backend:latest
+sudo docker build -t ehr-backend .
+sudo docker run -e DB_HOST=ehr-db --network ehr-net -p 8000:8000 ehr-backend
+
+
+
