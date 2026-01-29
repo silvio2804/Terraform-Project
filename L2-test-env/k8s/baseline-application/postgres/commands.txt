@@ -1,3 +1,4 @@
+## Configurazione locale, test del funzionamento
 sudo docker network create ehr-net
 
 sudo docker build -t ehr-db .

@@ -18,31 +18,6 @@ spec:
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
-        
-        # --- CONFIGURAZIONE PROBES PER BASELINE OPERATIVA ---
-        
-        # LivenessProbe: Controlla se il processo è vivo (Baseline tecnica)
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-          initialDelaySeconds: 5
-          periodSeconds: 15
-          timeoutSeconds: 2
-
-        # ReadinessProbe: Controlla se il sistema è pronto e integro (Baseline funzionale)
-        # Il Pod sarà 'Ready' solo se l'integrità dei dati è verificata
-        readinessProbe:
-          httpGet:
-            path: /health/deep
-            port: 8000
-          initialDelaySeconds: 10
-          periodSeconds: 20
-          successThreshold: 1
-          failureThreshold: 3
-        
-        # ---------------------------------------------------
-
         env:
         - name: DB_HOST
           value: postgres
@@ -75,3 +50,4 @@ spec:
       port: 8000
       targetPort: 8000
       nodePort: 30080
+

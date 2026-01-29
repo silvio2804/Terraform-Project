@@ -161,3 +161,31 @@ def hard_reset_database():
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/health/deep")
+def deep_integrity_check():
+    """
+    Verifica che la struttura gerarchica sia integra.
+    Cruciale per definire la baseline prima di un test di Restore Selettivo.
+    """
+    db = get_db()
+    try:
+        # Check 1: Orfani (Note senza visita)
+        orphans_query = text("SELECT COUNT(*) FROM clinical_notes WHERE encounter_id IS NULL")
+        orphans = db.execute(orphans_query).scalar()
+        
+        # Check 2: Pazienti recenti (Verifica che i dati non siano troppo vecchi/stale)
+        freshness_query = text("SELECT COUNT(*) FROM patients WHERE created_at > NOW() - INTERVAL '30 days'")
+        active_patients = db.execute(freshness_query).scalar()
+
+        status = "healthy" if orphans == 0 and active_patients > 0 else "degraded"
+        
+        return {
+            "status": status,
+            "integrity": {
+                "orphaned_notes": orphans,    # Deve essere 0 in Baseline
+                "recent_activity": active_patients # Deve essere > 0
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Deep check failed: {str(e)}")
