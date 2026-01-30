@@ -13,13 +13,18 @@
 - storage NFS dedicato della VM: Proxmox server
 
 ## Fault innescato
-- **Categoria primaria:** Data-Level Fault
+- **Categoria primaria:** Infrastructure-Level Fault
 - **Stato:** permanente
-- **Modalità:** corruzione, perdita o indisponibilità dei dati clinici persistenti
+- **Modalità:** I/O failure sul volume persistente del database
+
+## Effetto osservabile
+- errori I/O su postgresSQL
+- crash del pod o blocco delle transazioni
+- dati clinici indisponibili o incoerenti
 
 ## Condizione di violazione BIA
 - **Proprietà CIA compromessa:** Integrity, Availability
-- **Soglia:** perdita o corruzione di dati clinici necessari al completamento della documentazione
+- **Soglia:** disponibilità dati 2 minuti perdita o corruzione di dati clinici necessari al completamento della documentazione
 
 ## Assunzioni di scenario
 - Fallimento dei meccanismi automatici di self-healing
@@ -38,4 +43,6 @@
 - **Strategia B:** restore selettivo + validazione automatica
 
 ## Output atteso
-Ripristino completo e corretto dei dati clinici entro le soglie BIA, con confronto del recovery gap tra le strategie.
+- Sistema nuovamente disponibile;
+- ripristino completo e corretto dei dati clinici entro le soglie BIA
+- Confronto del recovery gap tra le strategie.

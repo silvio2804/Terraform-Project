@@ -1,6 +1,5 @@
 # Runbook Scenario S1 – Fault su Clinical Documentation
 
-
 1. Deploy baseline overlay
 2. Applicare overlay chaos-data-corruption
 3. Verificare violazione soglie BIA
@@ -11,3 +10,8 @@
    - correttezza del recovery
    - temporalità del recovery
    - stabilità del recovery
+
+## Recovery strategy A
+
+## Recovery strategy B
+

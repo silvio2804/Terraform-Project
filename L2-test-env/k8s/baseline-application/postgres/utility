@@ -5,4 +5,3 @@ kubectl exec -it postgres-db-86c86f648d-992bs -- bash
 
 # Check dimension of EHR database
 SELECT pg_size_pretty(pg_database_size(current_database()));
- pg_size_pretty 

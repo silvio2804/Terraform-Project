@@ -7,7 +7,7 @@ API_URL = "http://localhost:8000" # O il nome del servizio K8s: http://ehr-backe
 EXPECTED_THRESHOLDS = {
     "patients": 100,        # Minimo accettabile per considerare il sistema "in carico"
     "encounters": 400,      # Esempio basato sul seeding (4 per paziente)
-    "clinical_notes": 1000  # Esempio (10 per encounter)
+    "clinical_notes": 1000  
 }
 
 def check_service_availability():

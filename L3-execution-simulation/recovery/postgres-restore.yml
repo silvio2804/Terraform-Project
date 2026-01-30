@@ -1,0 +1,28 @@
+# playbooks/recovery_strategy_A.yml
+- name: Recovery Strategy A – Full Restore
+  hosts: bastion
+  gather_facts: no
+  tasks:
+
+    - name: Mark recovery A start
+      shell: |
+        echo "recovery_start{strategy=\"A\"} $(date +%s)" | \
+        curl --data-binary @- {{ pushgateway_url }}/metrics/job/recovery_events/scenario/{{ scenario_id }}
+
+    - name: Scale down DB
+      shell: kubectl scale deploy postgres --replicas=0 -n {{ namespace }}
+
+    - name: Restore PVC from backup
+      shell: |
+        rsync -av {{ backup_dir }}/full/ /mnt/nfs/postgres/
+
+    - name: Scale up DB
+      shell: kubectl scale deploy postgres --replicas=1 -n {{ namespace }}
+
+    - name: Wait for DB readiness
+      shell: kubectl wait pod -l {{ db_pod_label }} --for=condition=Ready -n {{ namespace }} --timeout=180s
+
+    - name: Mark recovery A end
+      shell: |
+        echo "recovery_end{strategy=\"A\"} $(date +%s)" | \
+        curl --data-binary @- {{ pushgateway_url }}/metrics/job/recovery_events/scenario/{{ scenario_id }}

@@ -1,12 +1,17 @@
-apiVersion: chaos-mesh.org/v1alpha1
 kind: IOChaos
+apiVersion: chaos-mesh.org/v1alpha1
+metadata:
+  namespace: default
+  name: postgres-pvc-io-failure
 spec:
-  action: corrupt
-  mode: one
   selector:
+    namespaces:
+      - default
     labelSelectors:
       app: postgres
+  mode: all
+  action: fault
+  errno: 5
+  percent: 100
   volumePath: /var/lib/postgresql/data
-  corruption:
-    percent: 30
-  duration: "10m"
+  duration: 2m
