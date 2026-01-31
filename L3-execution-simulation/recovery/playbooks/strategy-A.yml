@@ -1,0 +1,77 @@
+- name: Strategy A – Full PostgreSQL Restore
+  hosts: master
+  gather_facts: no
+  vars:
+    recovery_strategy: "A"
+
+  tasks:
+
+    # ---------------------------------------------------
+    # 1. Mark recovery start (Layer 3 → Layer 4 sync)
+    # ---------------------------------------------------
+    - name: Mark recovery A start
+      shell: |
+        echo "recovery_event{scenario=\"{{ scenario_id }}\",strategy=\"{{ recovery_strategy }}\",phase=\"start\"} $(date +%s)" | \
+        curl --data-binary @- {{ pushgateway_url }}/metrics/job/recovery
+
+    # ---------------------------------------------------
+    # 2. Isolate DB (stop writes)
+    # ---------------------------------------------------
+    - name: Scale down PostgreSQL deployment
+      shell: kubectl scale deploy {{ postgres_deployment }} --replicas=0 -n {{ namespace }}
+
+    - name: Wait for DB pod termination
+      shell: kubectl wait pod -l {{ postgres_label }} -n {{ namespace }} --for=delete --timeout=120s
+      ignore_errors: yes
+
+    # ---------------------------------------------------
+    # 3. Recreate PVC (clean state)
+    # ---------------------------------------------------
+    - name: Delete PostgreSQL PVC
+      shell: kubectl delete pvc postgres-pvc -n {{ namespace }}
+      ignore_errors: yes
+
+    - name: Recreate PostgreSQL PVC
+      shell: kubectl apply -f k8s/postgres-pvc.yaml
+
+    - name: Wait for PVC binding
+      shell: kubectl wait pvc postgres-pvc -n {{ namespace }} --for=jsonpath='{.status.phase}'=Bound --timeout=60s
+
+    # ---------------------------------------------------
+    # 4. Restart PostgreSQL
+    # ---------------------------------------------------
+    - name: Scale up PostgreSQL deployment
+      shell: kubectl scale deploy {{ postgres_deployment }} --replicas=1 -n {{ namespace }}
+
+    - name: Wait for PostgreSQL pod ready
+      shell: kubectl wait pod -l {{ postgres_label }} -n {{ namespace }} --for=condition=Ready --timeout=180s
+
+    # ---------------------------------------------------
+    # 5. Restore database from full backup
+    # ---------------------------------------------------
+    - name: Get PostgreSQL pod name
+      shell: kubectl get pod -l {{ postgres_label }} -n {{ namespace }} -o jsonpath='{.items[0].metadata.name}'
+      register: postgres_pod
+
+    - name: Restore PostgreSQL dump (full DB)
+      shell: |
+        kubectl exec -i {{ postgres_pod.stdout }} -n {{ namespace }} -- \
+        psql -U {{ db_user }} {{ db_name }} < {{ backup_file }}
+
+    # ---------------------------------------------------
+    # 6. Basic correctness check
+    # ---------------------------------------------------
+    - name: Verify database accessibility
+      shell: |
+        kubectl exec {{ postgres_pod.stdout }} -n {{ namespace }} -- \
+        psql -U {{ db_user }} {{ db_name }} -c "SELECT 1;"
+      register: db_check
+      failed_when: "'1 row' not in db_check.stdout"
+
+    # ---------------------------------------------------
+    # 7. Mark recovery end
+    # ---------------------------------------------------
+    - name: Mark recovery A end
+      shell: |
+        echo "recovery_event{scenario=\"{{ scenario_id }}\",strategy=\"{{ recovery_strategy }}\",phase=\"end\"} $(date +%s)" | \
+        curl --data-binary @- {{ pushgateway_url }}/metrics/job/recovery

@@ -2,6 +2,7 @@ import sys
 import random
 import uuid
 from datetime import datetime, timedelta
+import concurrent.futures
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
@@ -11,7 +12,11 @@ from models import Base, Patient, Encounter, ClinicalNote, AuditLog
 # Configurazione (Aggiorna con IP Worker e Porta NodePort 30080)
 DB_URL = "postgresql://postgres:secret@192.168.1.7:30432/ehr"
 
-engine = create_engine(DB_URL)
+engine = create_engine(
+    DB_URL, 
+    pool_size=20,       # Numero di connessioni mantenute aperte
+    max_overflow=10     # Connessioni extra in caso di picco
+)
 SessionLocal = sessionmaker(bind=engine)
 
 class DBManager:
@@ -30,40 +35,56 @@ class DBManager:
             self.db.rollback()
             print(f"[ERROR] Teardown fallito: {e}")
 
-    def seed(self, num_patients=500):
-        """Popolamento massivo per Baseline Operativa"""
-        print("sium")
-        print(f"[*] Seeding di {num_patients} pazienti...")
+    def seed_worker(self, num_patients_chunk):
+        """Funzione eseguita dal singolo thread per inserire un blocco di pazienti"""
+        db = SessionLocal()
         try:
-            for i in range(num_patients):
-                p = Patient(name=f"Test_Patient_{i}", tax_code=f"TAX-{uuid.uuid4().hex[:8]}")
-                self.db.add(p)
-                self.db.flush()
+            for i in range(num_patients_chunk):
+                p = Patient(name=f"Threaded_P_{uuid.uuid4().hex[:6]}", tax_code=f"TX-{uuid.uuid4().hex[:10]}")
+                db.add(p)
+                db.flush()
 
-                for _ in range(3): # 3 visite per paziente
-                    e = Encounter(patient_id=p.id, encounter_type="ROUTINE")
-                    self.db.add(e)
-                    self.db.flush()
+                for _ in range(3):
+                    e = Encounter(patient_id=p.id, encounter_type="EMERGENCY")
+                    db.add(e)
+                    db.flush()
 
-                    for _ in range(10): # 10 note per visita
+                    for _ in range(10):
                         n = ClinicalNote(
                             encounter_id=e.id, 
                             patient_id=p.id,
                             note_type="PROGRESS",
-                            content="Dato clinico per test recovery " * 20,
-                            created_at=datetime.utcnow() - timedelta(hours=random.randint(0, 720))
+                            content="Dato clinico massivo per stress test RAM..." * 30,
+                            created_at=datetime.utcnow() - timedelta(hours=random.randint(0, 100))
                         )
-                        self.db.add(n)
+                        db.add(n)
                 
-                if i % 100 == 0:
-                    self.db.commit()
-                    print(f"[+] Processati {i} pazienti...")
-            self.db.commit()
-            print(f"[OK] Inseriti circa {num_patients * 3 * 10} record clinici.")
-            print("[OK] Dataset Baseline creato con successo.")
+                if i % 10 == 0: # Commit frequenti per tenere alta la pressione sui log
+                    db.commit()
+            db.commit()
         except Exception as e:
-            self.db.rollback()
-            print(f"[ERROR] Seed fallito: {e}")
+            db.rollback()
+            print(f"Errore worker: {e}")
+        finally:
+            db.close()
+
+    def seed_parallel(self, total_patients=100000, num_threads=5):
+        """Gestisce la distribuzione del carico tra i thread"""
+        print(f"[*] Avvio seeding parallelo: {total_patients} pazienti su {num_threads} thread...")
+        chunk_size = total_patients // num_threads
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
+            # Distribuisce il lavoro ai thread
+            futures = [executor.submit(self.seed_worker, chunk_size) for _ in range(num_threads)]
+            
+            # Attende il completamento
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    print(f"Thread ha generato un errore: {e}")
+        
+        print("[OK] Seeding parallelo completato.")
 
     def corrupt(self, hours=24):
         """Iniezione guasto (Fault Injection)"""
@@ -93,7 +114,7 @@ if __name__ == "__main__":
     if cmd == "teardown":
         mgr.teardown()
     elif cmd == "seed":
-        mgr.seed(10000)
+        mgr.seed_parallel(100000,8)
     elif cmd == "corrupt":
         mgr.corrupt(48)
     elif cmd == "stats":

@@ -15,3 +15,9 @@
 
 ## Recovery strategy B
 
+1. check baseline pre-test (check-baseline.py)
+2. inietto il fault (dalla dashboard o dalla file .yml)
+3. soglie bia violate, automaticamente
+4. recovery strategy A
+      applico strategy-A.yml
+5. osservazione

@@ -1,0 +1,15 @@
+namespace: ehr
+postgres_deployment: postgres
+postgres_label: app=postgres
+db_name: ehrdb
+db_user: ehruser
+backup_file: /backups/postgres/full_backup.sql
+pushgateway_url: http://pushgateway:9091
+scenario_id: S1
+
+## test parameters
+hash_backup_file: /backups/postgres/full_backup.sql.sha256
+
+# number of records to verify after recovery
+records_to_verify: 1000
+
