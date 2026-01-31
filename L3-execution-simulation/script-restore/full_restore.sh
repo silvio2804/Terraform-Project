@@ -3,7 +3,7 @@ set -euo pipefail
 
 # === CONFIG ===
 POSTGRES_HOST="192.168.1.7"
-POSTGRES_PORT="30432"
+POSTGRES_PORT="30032"
 POSTGRES_USER="postgres"
 POSTGRES_DB="secret"
 BACKUP_FILE="$1"   # passato come argomento
