@@ -44,10 +44,11 @@ kind: Service
 metadata:
   name: postgres
 spec:
-  type: ClusterIP
+  type: NodePort
   selector:
     app: postgres
   ports:
-    - port: 5432
-      targetPort: 5432
+    - port: 5432       # Porta interna al cluster
+      targetPort: 5432 # Porta su cui il pod PostgreSQL è in ascolto
+      nodePort: 30032  # Porta esposta sull'IP del nodo (opzionale, tra 30000-32767)
 
