@@ -3,6 +3,7 @@
 - name: Setup NFS Server Essential (AlmaLinux)
   hosts: nfs
   become: yes
+
   tasks:
     - name: Install nfs-utils
       dnf: 
@@ -31,28 +32,28 @@
     # --- SEZIONE COPIA FILE ---
     - name: Copy nfs manifest
       copy:
-        src: nfs.yml
+        src: "{{ manifest_path }}/nfs.yml"
         dest: /home/silvio/nfs.yml
         owner: silvio
         group: silvio
 
     - name: Copy ehr deployment manifest
       copy:
-        src: ehr-backend-deployment.yml
+        src: "{{ manifest_path }}/ehr-backend-deployment.yml"
         dest: /home/silvio/ehr-backend-deployment.yml
         owner: silvio
         group: silvio
 
     - name: Copy postgres deployment manifest
       copy:
-        src: postgres-deployment.yml
+        src: "{{ manifest_path }}/postgres-deployment.yml"
         dest: /home/silvio/postgres-deployment.yml
         owner: silvio
         group: silvio 
 
     - name: Copy Metric Server manifest
       copy:
-        src: metric-server.yml
+        src: "{{ manifest_path }}/metric-server.yml"
         dest: /home/silvio/metric-server.yml
         owner: silvio
         group: silvio
