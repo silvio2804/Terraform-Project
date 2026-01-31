@@ -9,8 +9,8 @@ from sqlalchemy.orm import sessionmaker
 # Importazione centralizzata dai modelli comuni
 from models import Base, Patient, Encounter, ClinicalNote, AuditLog
 
-# Configurazione (Aggiorna con IP Worker e Porta NodePort 30080)
-DB_URL = "postgresql://postgres:secret@192.168.1.7:30432/ehr"
+# Configurazione (Aggiorna con IP Worker e Porta NodePort 30032)
+DB_URL = "postgresql://postgres:secret@192.168.1.7:30032/ehr"
 
 engine = create_engine(
     DB_URL, 
