@@ -3,7 +3,7 @@ import sys
 import time
 
 # Configurazione target
-API_URL = "http://localhost:8000" # O il nome del servizio K8s: http://ehr-backend:8000
+API_URL = "http://192.168.1.7:30080" # O il nome del servizio K8s: http://ehr-backend:8000
 EXPECTED_THRESHOLDS = {
     "patients": 100,        # Minimo accettabile per considerare il sistema "in carico"
     "encounters": 400,      # Esempio basato sul seeding (4 per paziente)
@@ -11,7 +11,6 @@ EXPECTED_THRESHOLDS = {
 }
 
 def check_service_availability():
-    """Verifica Condizione 1: Il servizio è raggiungibile e il DB è montato?"""
     try:
         r = requests.get(f"{API_URL}/health", timeout=5)
         if r.status_code == 200:
@@ -24,7 +23,6 @@ def check_service_availability():
         return False
 
 def check_data_volume():
-    """Verifica Condizione 2: Il dataset ha la 'massa' critica per il test?"""
     try:
         r = requests.get(f"{API_URL}/stats", timeout=5)
         data = r.json()

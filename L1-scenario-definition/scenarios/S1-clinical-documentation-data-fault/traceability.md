@@ -7,8 +7,9 @@
 
 - **Layer 3 – Execution & Simulation**
   - Stato di Baseline: popolamente del DB con record clinici rappresentativi
+  - Implementazione dei test case dello scenario considerato
   - Esperimento: danneggiamento dei volumi persistenti
-  - Strategie di ripristino: ripristino manuale dal backup
+  - Strategie di ripristino
 
 - **Layer 4 – Monitoring**
   - Controlli di integrità dei dati

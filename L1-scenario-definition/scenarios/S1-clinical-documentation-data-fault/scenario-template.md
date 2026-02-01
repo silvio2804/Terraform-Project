@@ -1,23 +1,25 @@
-# Scenario S1 – Fault su Clinical Documentation
+# Scenario S1 – Loss of Availability of Clinical Documentation System
 
 ## ID e nome
-- **ID:** S1
-- **Nome:** Fault su Clinical Documentation
+- **ID:** CD-AV-01
+- **Nome:** Loss of Availability of Clinical Documentation System
 
 ## Processo aziendale coinvolto
 - Clinical Documentation
 
 ## Asset coinvolti
+- EHR application backend
 - Database: PostgreSQL EHR
-- Persistent Volumes e worker node: Kubernetes 
-- storage NFS dedicato della VM: Proxmox server
+- Persistent Volumes e worker node (NFS): Kubernetes 
 
 ## Fault innescato
 - **Categoria primaria:** Infrastructure-Level Fault
 - **Stato:** permanente
-- **Modalità:** I/O failure sul volume persistente del database
+- **Modalità:** perdita di disponibilità del database EHR
 
-## Effetto osservabile
+Non specifico ancora il punto preciso di iniezione. (lo faccio nel test-case)
+
+## Effetto osservabile (impatto)
 - errori I/O su postgresSQL
 - crash del pod o blocco delle transazioni
 - dati clinici indisponibili o incoerenti
@@ -32,17 +34,18 @@
 - Nessun intervento esterno prima dell’inizio dello scenario
 
 ## Dimensioni di recovery attivate
-- Completezza
-- Correttezza
+- Completezza e Correttezza
 - Temporalità
-- Autonomia
-- Stabilità
+
+### Fattori che influenzano le dimensioni di recovery 
+Tali dimensioni possono esssere influenate da:
+- punto di iniezione;
+- carico del sistema;
 
 ## Strategie di recovery valutate
 - **Strategia A:** isolamento asset + restore da backup + verifica integrità
-- **Strategia B:** restore selettivo + validazione automatica
 
 ## Output atteso
 - Sistema nuovamente disponibile;
-- ripristino completo e corretto dei dati clinici entro le soglie BIA
-- Confronto del recovery gap tra le strategie.
+- ripristino completo e corretto dei dati clinici entro le soglie BIA;
+- Misura del recovery gap.
