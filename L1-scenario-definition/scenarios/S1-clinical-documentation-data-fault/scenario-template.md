@@ -1,8 +1,8 @@
-# Scenario S1 – Loss of Availability of Clinical Documentation System
+# Scenario S1 – Clinical Documentation Unavailability Due to Database Failure
 
 ## ID e nome
 - **ID:** CD-AV-01
-- **Nome:** Loss of Availability of Clinical Documentation System
+- **Nome:** Clinical Documentation Unavailability Due to Database Failure
 
 ## Processo aziendale coinvolto
 - Clinical Documentation
@@ -15,23 +15,22 @@
 ## Fault innescato
 - **Categoria primaria:** Data-level fault
 - **Categoria secondaria** Application-level fault
-- **Stato:** permanente
+- **Stato:** transiente
+- **Effetto sul processo:** permanente
 - **Modalità:** perdita di disponibilità del database EHR
+
 
 Non specifico ancora il punto preciso di iniezione. (lo faccio nel test-case)
 
-## Effetto osservabile
+## Impatto
 - processo Clinical Documentation  non disponibile
 - crash del pod o blocco delle transazioni (transazioni inconsistenti)
 - dati clinici indisponibili o incoerenti
 
-## Impatto
-- Servizio del DB non disponibile
-- Processo Clinical documentation interrotto
-
 ## Condizione di violazione BIA
-- **Proprietà CIA compromessa:** Availability
-- **Soglia:** Unvailability eccede le soglie temporali definite di 2 minuti
+- **Proprietà CIA primaria compromessa:** Availability
+- **Soglia:** Unavailability > 2 minuti
+- **Proprietà CIA secondaria compromessa**: Integrity (potential), l'integrità dei dati non può essere garantita dopo il fault, anche se il db ritorna operativo.
 
 ## Assunzioni di scenario
 - strategia non è l’oggetto della valutazione, ma una precondizione dell’esperimento (il sistema riesce a rientrare nelle soglie BIA)
@@ -44,14 +43,12 @@ Non specifico ancora il punto preciso di iniezione. (lo faccio nel test-case)
 - Completezza e Correttezza
 - Temporalità
 
-### Fattori che influenzano le dimensioni di recovery 
-Tali dimensioni possono esssere influenzate da:
+## Fattori che influenzano le dimensioni di recovery 
+I seguenti fattori sono identificati come potenziali fonti di variabilità che possono influenzare le capacità di recupero osservate. Questi fattori non sono fissi a livello di scenario, ma sono istanziati nella definizione dei casi di test:
 - punto di iniezione;
 - carico del sistema;
 
-## Strategie di recovery valutata
-- **Strategia:** 
-
+## Strategie di recovery di riferimento
 - Isolamento delle risorse, l'istanza del database interessata viene isolata per impedire l'ulteriore propagazione dello stato incoerente;
 
 - Ripristino dal backup, il database viene ripristinato dall'ultimo backup coerente disponibile;
@@ -59,6 +56,6 @@ Tali dimensioni possono esssere influenzate da:
 - Verifica dell'integrità, vengono eseguiti controlli post-ripristino per garantire la coerenza logica e la correttezza operativa.
 
 ## Output atteso
-- Sistema nuovamente disponibile;
+- Sistema e processo nuovamente disponibile;
 - ripristino completo e corretto dei dati clinici entro le soglie BIA;
-- Misura del recovery gap.
+- Misura del recovery gap, basato sulle dimensioni attivate.
