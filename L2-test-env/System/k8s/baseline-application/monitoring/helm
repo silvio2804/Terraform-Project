@@ -14,4 +14,4 @@ helm install monitor-system prometheus-community/kube-prometheus-stack \
 
 kubectl get svc -n monitoring | grep grafana
 
-kubectl patch svc monitor-system-grafana -n monitoring -p '{"spec": {"type": "NodePort"}}
+kubectl patch svc monitor-system-grafana -n monitoring -p '{"spec": {"type": "NodePort"}}'

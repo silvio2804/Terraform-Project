@@ -1,0 +1,166 @@
+---
+- name: Chaos Experiment & PostgreSQL Recovery (Textfile Collector Strategy)
+  hosts: master
+  gather_facts: no
+  vars:
+    # --- Configurazione Generale ---
+    scenario_id: "sc-postgres-crash-recov-01"
+    namespace: "default"
+    
+    # --- Configurazione Metrics (Textfile Collector) ---
+    # Path standard di kube-prometheus-stack. Verifica che sia corretto sul tuo nodo.
+    metrics_dir: "/var/lib/node_exporter/textfile_collector"
+    metrics_file: "chaos_experiment.prom"
+    
+    # --- Configurazione DB ---
+    postgres_deployment: "postgres-db"
+    postgres_label: "app=postgres"
+    db_user: "postgres"
+    db_name: "ehr"
+    
+    # --- Configurazione Backup/Restore ---
+    backup_file: "/tmp/backup_ehr_clean.sql"
+    pvc_manifest: "k8s/postgres-pvc.yaml" 
+
+  tasks:
+
+    # ==============================================================================
+    # PREPARAZIONE: Assicurati che la cartella delle metriche esista
+    # ==============================================================================
+    - name: Ensure Textfile Collector directory exists
+      file:
+        path: "{{ metrics_dir }}"
+        state: directory
+        mode: '0777' # Permessi ampi per evitare errori di scrittura durante il test
+
+    # ==============================================================================
+    # FASE 1: START DELL'ESPERIMENTO
+    # ==============================================================================
+    - name: Mark Experiment START
+      shell: |
+        # Creiamo un file temporaneo per scrittura atomica
+        cat <<EOF > {{ metrics_dir }}/{{ metrics_file }}.tmp
+        # HELP experiment_status Stato corrente dell'esperimento (1=running)
+        # TYPE experiment_status gauge
+        experiment_status{scenario="{{ scenario_id }}"} 1
+        
+        # HELP experiment_event Timestamp degli eventi
+        # TYPE experiment_event gauge
+        experiment_event{scenario="{{ scenario_id }}",phase="start"} $(date +%s)
+        EOF
+        
+        # Spostiamo il file nella destinazione finale (sovrascrive il vecchio run)
+        mv {{ metrics_dir }}/{{ metrics_file }}.tmp {{ metrics_dir }}/{{ metrics_file }}
+
+    # ==============================================================================
+    # FASE 2: INIEZIONE DEL FAULT (Chaos Mesh)
+    # ==============================================================================
+    - name: Inject Chaos (Pod Kill)
+      shell: |
+        cat <<EOF | kubectl apply -f -
+        apiVersion: chaos-mesh.org/v1alpha1
+        kind: PodChaos
+        metadata:
+          name: postgres-pod-kill-{{ scenario_id }}
+          namespace: {{ namespace }}
+        spec:
+          action: pod-kill
+          mode: one
+          selector:
+            labelSelectors:
+              {{ postgres_label }}
+          scheduler:
+            cron: "@every 10m"
+        EOF
+      args:
+        executable: /bin/bash
+
+    - name: Wait for Fault impact
+      pause:
+        seconds: 30
+
+    - name: Clean up Chaos Experiment
+      shell: kubectl delete podchaos postgres-pod-kill-{{ scenario_id }} -n {{ namespace }}
+      ignore_errors: yes
+
+    # ==============================================================================
+    # FASE 3: RECOVERY (Strategia Clean / Tabula Rasa)
+    # ==============================================================================
+    - name: Mark Recovery START
+      shell: |
+        # Appendiamo il nuovo evento al file esistente
+        echo 'experiment_event{scenario="{{ scenario_id }}",phase="recovery_start"} '$(date +%s) >> {{ metrics_dir }}/{{ metrics_file }}
+        # Aggiungiamo stato recovery
+        echo 'recovery_status{scenario="{{ scenario_id }}"} 1' >> {{ metrics_dir }}/{{ metrics_file }}
+      
+    # 3.1: Stop del DB
+    - name: Scale down PostgreSQL
+      shell: kubectl scale deploy {{ postgres_deployment }} --replicas=0 -n {{ namespace }}
+
+    - name: Wait for DB pod termination
+      shell: kubectl wait pod -l {{ postgres_label }} -n {{ namespace }} --for=delete --timeout=120s
+      ignore_errors: yes
+
+    # 3.2: Pulizia Dati
+    - name: Delete PostgreSQL PVC
+      shell: kubectl delete pvc postgres-pvc -n {{ namespace }}
+      ignore_errors: yes
+
+    # 3.3: Ricreazione Infrastruttura
+    - name: Recreate PostgreSQL PVC
+      shell: kubectl apply -f {{ pvc_manifest }}
+
+    - name: Wait for PVC binding
+      shell: kubectl wait pvc postgres-pvc -n {{ namespace }} --for=jsonpath='{.status.phase}'=Bound --timeout=60s
+      ignore_errors: yes 
+
+    - name: Scale up PostgreSQL deployment
+      shell: kubectl scale deploy {{ postgres_deployment }} --replicas=1 -n {{ namespace }}
+
+    - name: Wait for PostgreSQL pod ready
+      shell: kubectl wait pod -l {{ postgres_label }} -n {{ namespace }} --for=condition=Ready --timeout=180s
+
+    # ==============================================================================
+    # FASE 4: RESTORE DEI DATI
+    # ==============================================================================
+    - name: Get new PostgreSQL pod name
+      shell: kubectl get pod -l {{ postgres_label }} -n {{ namespace }} -o jsonpath='{.items[0].metadata.name}'
+      register: postgres_pod
+
+    - name: Restore PostgreSQL dump
+      shell: |
+        cat {{ backup_file }} | \
+        kubectl exec -i {{ postgres_pod.stdout }} -n {{ namespace }} -- \
+        psql -U {{ db_user }} {{ db_name }}
+
+    # ==============================================================================
+    # FASE 5: VERIFICA E FINE
+    # ==============================================================================
+    - name: Verify database integrity
+      shell: |
+        kubectl exec {{ postgres_pod.stdout }} -n {{ namespace }} -- \
+        psql -U {{ db_user }} {{ db_name }} -c "SELECT count(*) FROM information_schema.tables;"
+      register: db_check
+      failed_when: db_check.rc != 0
+
+    - name: Mark Experiment END
+      shell: |
+        # Appendiamo l'evento di fine
+        echo 'experiment_event{scenario="{{ scenario_id }}",phase="end"} '$(date +%s) >> {{ metrics_dir }}/{{ metrics_file }}
+        
+        # Aggiorniamo gli stati a 0 (per chiudere i grafici su Grafana)
+        # Nota: sed -i è rischioso su file letti in real-time, quindi usiamo la tecnica tmp
+        
+        # 1. Copia contenuto attuale
+        cp {{ metrics_dir }}/{{ metrics_file }} {{ metrics_dir }}/{{ metrics_file }}.tmp
+        
+        # 2. Rimuovi le vecchie linee di stato (sed delete)
+        sed -i '/experiment_status/d' {{ metrics_dir }}/{{ metrics_file }}.tmp
+        sed -i '/recovery_status/d' {{ metrics_dir }}/{{ metrics_file }}.tmp
+        
+        # 3. Aggiungi i nuovi stati a 0
+        echo 'experiment_status{scenario="{{ scenario_id }}"} 0' >> {{ metrics_dir }}/{{ metrics_file }}.tmp
+        echo 'recovery_status{scenario="{{ scenario_id }}"} 0' >> {{ metrics_dir }}/{{ metrics_file }}.tmp
+        
+        # 4. Scrittura atomica finale
+        mv {{ metrics_dir }}/{{ metrics_file }}.tmp {{ metrics_dir }}/{{ metrics_file }}

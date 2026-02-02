@@ -1,66 +1,78 @@
 ---
-- name: Chaos Experiment & PostgreSQL Recovery (Clean Strategy)
+- name: Chaos Experiment & PostgreSQL Recovery (External File Strategy)
   hosts: master
   gather_facts: no
   vars:
     # --- Configurazione Generale ---
     scenario_id: "sc-postgres-crash-recov-01"
     namespace: "default"
-    pushgateway_url: "http://prometheus-pushgateway:9091"
+    
+    # --- Configurazione File Chaos ---
+    # Percorso del file SULLA TUA MACCHINA (dove lanci ansible)
+    local_chaos_file: "./postgres-chaos.yaml"
+    # Percorso dove verrà copiato SUL SERVER REMOTO
+    remote_chaos_file: "/tmp/postgres-chaos.yaml"
+    
+    # --- Configurazione Metrics (Textfile Collector) ---
+    metrics_dir: "/var/lib/node_exporter/textfile_collector"
+    metrics_file: "chaos_experiment.prom"
     
     # --- Configurazione DB ---
     postgres_deployment: "postgres-db"
-    postgres_label: "app=postgres"  # Label usato per selezionare i pod
+    postgres_label: "app=postgres"
     db_user: "postgres"
     db_name: "ehr"
     
     # --- Configurazione Backup/Restore ---
-    # Assicurati che questo file esista sulla macchina dove gira Ansible
     backup_file: "/tmp/backup_ehr_clean.sql"
-    # Percorso del manifesto PVC originale (necessario per ricrearlo)
-    pvc_manifest: "k8s/postgres-pvc.yaml" 
+    pvc_manifest: "~/nfs" 
 
   tasks:
 
     # ==============================================================================
+    # PREPARAZIONE
+    # ==============================================================================
+    - name: Ensure Textfile Collector directory exists
+      file:
+        path: "{{ metrics_dir }}"
+        state: directory
+        mode: '0777'
+      become: yes
+
+    # ==============================================================================
     # FASE 1: START DELL'ESPERIMENTO
     # ==============================================================================
-    - name: Mark Experiment START
-      shell: |
-        echo "experiment_event{scenario=\"{{ scenario_id }}\",phase=\"start\"} $(date +%s)" | \
-        curl --data-binary @- {{ pushgateway_url }}/metrics/job/chaos_experiment
+    - name:  Mark Experiment START
+      copy:
+        dest: "{{ metrics_dir }}/{{ metrics_file }}"
+        content: |
+          # HELP experiment_status Stato corrente dell'esperimento (1=running)
+          # TYPE experiment_status gauge
+          experiment_status{scenario="{{ scenario_id }}"} 1
+          experiment_event{scenario="{{ scenario_id }}",phase="start"} {{ lookup('pipe', 'date +%s') }}
+        mode: '0644'
 
     # ==============================================================================
-    # FASE 2: INIEZIONE DEL FAULT (Chaos Mesh)
+    # FASE 2: INIEZIONE DEL FAULT (Da file esterno)
     # ==============================================================================
-    - name: Inject Chaos (Pod Kill)
-      shell: |
-        cat <<EOF | kubectl apply -f -
-        apiVersion: chaos-mesh.org/v1alpha1
-        kind: PodChaos
-        metadata:
-          name: postgres-pod-kill-{{ scenario_id }}
-          namespace: {{ namespace }}
-        spec:
-          action: pod-kill
-          mode: one
-          selector:
-            labelSelectors:
-              {{ postgres_label }}
-          scheduler:
-            cron: "@every 10m" # Lo uccide una volta, poi il cron lo rifarebbe dopo 10m
-        EOF
-      args:
-        executable: /bin/bash
+    
+    # 1. Copiamo il file dal controller Ansible al nodo Master
+    - name: Copy Chaos configuration to remote
+      copy:
+        src: "{{ local_chaos_file }}"
+        dest: "{{ remote_chaos_file }}"
+        mode: '0644'
 
-    - name: Wait for Fault impact (Simulate downtime/investigation)
+    # 2. Applichiamo il file
+    - name:  Inject Chaos (Pod Kill)
+      shell: kubectl apply -f {{ remote_chaos_file }}
+
+    - name: Wait for Fault impact
       pause:
         seconds: 30
 
-    # È CRUCIALE rimuovere il chaos prima di fare il recovery, altrimenti 
-    # Chaos Mesh potrebbe uccidere il nuovo pod appena lo ricrei.
     - name: Clean up Chaos Experiment
-      shell: kubectl delete podchaos postgres-pod-kill-{{ scenario_id }} -n {{ namespace }}
+      shell: kubectl delete -f {{ remote_chaos_file }}
       ignore_errors: yes
 
     # ==============================================================================
@@ -68,19 +80,19 @@
     # ==============================================================================
     - name: Mark Recovery START
       shell: |
-        echo "recovery_event{scenario=\"{{ scenario_id }}\",phase=\"start\"} $(date +%s)" | \
-        curl --data-binary @- {{ pushgateway_url }}/metrics/job/recovery
+        echo 'experiment_event{scenario="{{ scenario_id }}",phase="recovery_start"} '$(date +%s) >> {{ metrics_dir }}/{{ metrics_file }}
+        echo 'recovery_status{scenario="{{ scenario_id }}"} 1' >> {{ metrics_dir }}/{{ metrics_file }}
 
     # 3.1: Stop del DB
-    - name: Scale down PostgreSQL (Isolate)
+    - name: Scale down PostgreSQL
       shell: kubectl scale deploy {{ postgres_deployment }} --replicas=0 -n {{ namespace }}
 
     - name: Wait for DB pod termination
       shell: kubectl wait pod -l {{ postgres_label }} -n {{ namespace }} --for=delete --timeout=120s
       ignore_errors: yes
 
-    # 3.2: Pulizia Dati (Tabula Rasa)
-    - name: Delete PostgreSQL PVC (Wipe Data)
+    # 3.2: Pulizia Dati
+    - name: Delete PostgreSQL PVC
       shell: kubectl delete pvc postgres-pvc -n {{ namespace }}
       ignore_errors: yes
 
@@ -90,15 +102,12 @@
 
     - name: Wait for PVC binding
       shell: kubectl wait pvc postgres-pvc -n {{ namespace }} --for=jsonpath='{.status.phase}'=Bound --timeout=60s
-      # Nota: A volte il PVC resta 'Pending' finché non parte il Pod. 
-      # Se usi StorageClass standard, potrebbe servire far partire prima il pod.
-      # Se questo step fallisce, prova a spostarlo DOPO lo scale up.
       ignore_errors: yes 
 
     - name: Scale up PostgreSQL deployment
       shell: kubectl scale deploy {{ postgres_deployment }} --replicas=1 -n {{ namespace }}
 
-    - name: Wait for PostgreSQL pod ready (New clean instance)
+    - name: Wait for PostgreSQL pod ready
       shell: kubectl wait pod -l {{ postgres_label }} -n {{ namespace }} --for=condition=Ready --timeout=180s
 
     # ==============================================================================
@@ -108,8 +117,6 @@
       shell: kubectl get pod -l {{ postgres_label }} -n {{ namespace }} -o jsonpath='{.items[0].metadata.name}'
       register: postgres_pod
 
-    # Usiamo 'kubectl exec -i' per passare il file locale direttamente al processo psql remoto
-    # senza dover copiare fisicamente il file nel pod.
     - name: Restore PostgreSQL dump
       shell: |
         cat {{ backup_file }} | \
@@ -119,7 +126,7 @@
     # ==============================================================================
     # FASE 5: VERIFICA E FINE
     # ==============================================================================
-    - name: Verify database integrity (Simple Check)
+    - name: Verify database integrity
       shell: |
         kubectl exec {{ postgres_pod.stdout }} -n {{ namespace }} -- \
         psql -U {{ db_user }} {{ db_name }} -c "SELECT count(*) FROM information_schema.tables;"
@@ -128,5 +135,11 @@
 
     - name: Mark Experiment END
       shell: |
-        echo "experiment_event{scenario=\"{{ scenario_id }}\",phase=\"end\"} $(date +%s)" | \
-        curl --data-binary @- {{ pushgateway_url }}/metrics/job/chaos_experiment
+        # Append Timestamp fine
+        echo 'experiment_event{scenario="{{ scenario_id }}",phase="end"} '$(date +%s) >> {{ metrics_dir }}/{{ metrics_file }}
+        
+        # Reset stati a 0 (Atomico)
+        cp {{ metrics_dir }}/{{ metrics_file }} {{ metrics_dir }}/{{ metrics_file }}.tmp
+        sed -i 's/experiment_status{scenario="{{ scenario_id }}"} 1/experiment_status{scenario="{{ scenario_id }}"} 0/' {{ metrics_dir }}/{{ metrics_file }}.tmp
+        sed -i 's/recovery_status{scenario="{{ scenario_id }}"} 1/recovery_status{scenario="{{ scenario_id }}"} 0/' {{ metrics_dir }}/{{ metrics_file }}.tmp
+        mv {{ metrics_dir }}/{{ metrics_file }}.tmp {{ metrics_dir }}/{{ metrics_file }}[silvio@ansible playbooks]$ 

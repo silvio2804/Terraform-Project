@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs-pvc  # Deve coincidere con 'claimName' nel deployment
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+  # Se necessario, specifica lo storageClassName o lascialo vuoto per il default
+  # storageClassName: ""
