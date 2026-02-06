@@ -4,11 +4,10 @@
   gather_facts: no
   vars:
     # --- Configurazione Generale ---
-    scenario_id: "sc-postgres-crash-recov-01"
+    scenario_id: "CD-AV-01-TC-01"
     namespace: "default"
     
     # --- Configurazione File Chaos ---
-    # Percorso del file SULLA TUA MACCHINA (dove lanci ansible)
     local_chaos_file: "./postgres-chaos.yaml"
     # Percorso dove verrà copiato SUL SERVER REMOTO
     remote_chaos_file: "/tmp/postgres-chaos.yaml"
@@ -39,9 +38,7 @@
         mode: '0777'
       become: yes
 
-    # ==============================================================================
     # FASE 1: START DELL'ESPERIMENTO
-    # ==============================================================================
     - name:  Mark Experiment START
       copy:
         dest: "{{ metrics_dir }}/{{ metrics_file }}"
@@ -52,9 +49,7 @@
           experiment_event{scenario="{{ scenario_id }}",phase="start"} {{ lookup('pipe', 'date +%s') }}
         mode: '0644'
 
-    # ==============================================================================
     # FASE 2: INIEZIONE DEL FAULT (Da file esterno)
-    # ==============================================================================
     
     # 1. Copiamo il file dal controller Ansible al nodo Master
     - name: Copy Chaos configuration to remote
@@ -75,9 +70,7 @@
       shell: kubectl delete -f {{ remote_chaos_file }}
       ignore_errors: yes
 
-    # ==============================================================================
     # FASE 3: RECOVERY (Strategia Clean / Tabula Rasa)
-    # ==============================================================================
     - name: Mark Recovery START
       shell: |
         echo 'experiment_event{scenario="{{ scenario_id }}",phase="recovery_start"} '$(date +%s) >> {{ metrics_dir }}/{{ metrics_file }}
@@ -110,9 +103,7 @@
     - name: Wait for PostgreSQL pod ready
       shell: kubectl wait pod -l {{ postgres_label }} -n {{ namespace }} --for=condition=Ready --timeout=180s
 
-    # ==============================================================================
     # FASE 4: RESTORE DEI DATI
-    # ==============================================================================
     - name: Get new PostgreSQL pod name
       shell: kubectl get pod -l {{ postgres_label }} -n {{ namespace }} -o jsonpath='{.items[0].metadata.name}'
       register: postgres_pod
@@ -123,9 +114,7 @@
         kubectl exec -i {{ postgres_pod.stdout }} -n {{ namespace }} -- \
         psql -U {{ db_user }} {{ db_name }}
 
-    # ==============================================================================
     # FASE 5: VERIFICA E FINE
-    # ==============================================================================
     - name: Verify database integrity
       shell: |
         kubectl exec {{ postgres_pod.stdout }} -n {{ namespace }} -- \

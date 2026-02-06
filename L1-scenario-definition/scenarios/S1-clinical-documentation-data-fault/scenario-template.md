@@ -7,30 +7,28 @@
 ## Processo aziendale coinvolto
 - Clinical Documentation
 
-## Asset coinvolti
+## Asset/servizi coinvolti
 - EHR application backend
 - Database: PostgreSQL EHR
 - Persistent Volumes e worker node (NFS): Kubernetes 
 
 ## Fault innescato
-- **Categoria primaria:** Data-level fault
-- **Categoria secondaria** Application-level fault
-- **Stato:** transiente
-- **Effetto sul processo:** permanente
-- **Modalità:** perdita di disponibilità del database EHR
-
-
-Non specifico ancora il punto preciso di iniezione. (lo faccio nel test-case)
+- Categoria: Application-level fault
+- Stato del fault: transiente
+- Effetto sul servizio del processo: permanente
+- Effetto osservato:
+  - perdita di disponibilità del servizio di database EHR
+  - impossibilità di garantire l’integrità dei dati clinici
+  - blocco delle transazioni (transazioni inconsistenti)
 
 ## Impatto
 - processo Clinical Documentation  non disponibile
-- crash del pod o blocco delle transazioni (transazioni inconsistenti)
 - dati clinici indisponibili o incoerenti
 
 ## Condizione di violazione BIA
 - **Proprietà CIA primaria compromessa:** Availability
 - **Soglia:** Unavailability > 2 minuti
-- **Proprietà CIA secondaria compromessa**: Integrity (potential), l'integrità dei dati non può essere garantita dopo il fault, anche se il db ritorna operativo.
+- **Proprietà CIA  secondaria possibilmente compromessa**: Integrity, l'integrità dei dati non può essere garantita dopo il fault, anche se il db ritorna operativo.
 
 ## Assunzioni di scenario
 - strategia non è l’oggetto della valutazione, ma una precondizione dell’esperimento (il sistema riesce a rientrare nelle soglie BIA)
@@ -40,13 +38,14 @@ Non specifico ancora il punto preciso di iniezione. (lo faccio nel test-case)
 - Baseline coerente
 
 ## Dimensioni di recovery attivate
-- Completezza e Correttezza
-- Temporalità
+- Completezza e Correttezza del recovery
+- Temporalità del recovery
 
 ## Fattori che influenzano le dimensioni di recovery 
 I seguenti fattori sono identificati come potenziali fonti di variabilità che possono influenzare le capacità di recupero osservate. Questi fattori non sono fissi a livello di scenario, ma sono istanziati nella definizione dei casi di test:
-- punto di iniezione;
-- carico del sistema;
+- punto di iniezione (asset colpito): [backend EHR, database EHR, volume di persistenza]
+- carico del sistema: [nominale, elevato];
+- timing del fault: [picco, normale]
 
 ## Strategie di recovery di riferimento
 - Isolamento delle risorse, l'istanza del database interessata viene isolata per impedire l'ulteriore propagazione dello stato incoerente;

@@ -6,7 +6,7 @@ import concurrent.futures
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-# Importazione centralizzata dai modelli comuni
+# Importazione dei models
 from models import Base, Patient, Encounter, ClinicalNote, AuditLog
 
 # Configurazione (Aggiorna con IP Worker e Porta NodePort 30032)
