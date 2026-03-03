@@ -36,26 +36,26 @@ ax.step(time, availability_data, where="post", linewidth=2, label="Availability 
 
 # Linee verticali
 ax.axvline(T0, color="black", linestyle=":", linewidth=2, label="T0 – Fault")
-ax.axvline(T_bia, color="red", linestyle="--", linewidth=2, label="Soglia BIA")
-ax.axvline(T_restart_end, color="blue", linestyle=":", linewidth=2, label="Fine restart pod")
-ax.axvline(T2, color="green", linestyle=":", linewidth=2, label="Restore completato")
+ax.axvline(T_bia, color="red", linestyle="--", linewidth=2, label="T1 - Soglia BIA")
+#ax.axvline(T_restart_end, color="blue", linestyle=":", linewidth=2, label="Fine restart pod")
+ax.axvline(T2, color="green", linestyle=":", linewidth=2, label="T2 - Restore completato")
 
 # Aree colorate per le fasi
-ax.axvspan(T0, T_restart_end, color="orange", alpha=0.15, label="Restart pod (self-healing)")
-ax.axvspan(T_restart_end, T2, color="purple", alpha=0.15, label="Restore DB")
+ax.axvspan(T0, T_restart_end, color="orange", alpha=0.15, label="contenimento")
+ax.axvspan(T_restart_end, T2, color="purple", alpha=0.15, label="Restore")
 
 # Annotazioni temporali con frecce
 ax.annotate("", xy=(T_bia, 0.2), xytext=(T0, 0.2), arrowprops=dict(arrowstyle="<->"))
-#ax.text(T0 + (T_bia-T0)/2, 0.25, "Tempo massimo accettabile\n(T_bia − T0)", ha="center")
+ax.text(T0 + (T_bia-T0)/2, 0.25, "soglia max\n(T1 − T0)", ha="center")
 
 ax.annotate("", xy=(T2, 0.4), xytext=(T_bia, 0.4), arrowprops=dict(arrowstyle="<->"))
-ax.text(T_bia + (T2-T_bia)/2, 0.45, "Recovery gap\n(T2 − T_bia)", ha="center")
+ax.text(T_bia + (T2-T_bia)/2, 0.45, "Recovery gap\n(T2 − T1)", ha="center")
 
 # Etichette sotto l'asse
 y_pos_labels = -0.10
 #y_pos_
 ax.text(T0, y_pos_labels, "T0", ha="center", va="top", fontsize=10, fontweight='bold')
-ax.text(T_bia, y_pos_labels, "T_bia", ha="center", va="top", fontsize=10, color="red")
+ax.text(T_bia, y_pos_labels, "T1", ha="center", va="top", fontsize=10, color="red")
 #ax.text(T_restart_end, y_pos_labels, "Fine restart\npod", ha="center", va="top", fontsize=10, color="blue")
 ax.text(T2, y_pos_labels, "T2", ha="center", va="top", fontsize=10, color="green")
 
@@ -63,9 +63,9 @@ ax.text(T2, y_pos_labels, "T2", ha="center", va="top", fontsize=10, color="green
 ax.set_ylim(-0.1, 1.1)
 ax.set_yticks([0, 1])
 ax.set_yticklabels(["Unavailable", "Available"])
-ax.set_xlabel("Tempo", labelpad=40)
+ax.set_xlabel("Tempo", labelpad=5)
 ax.set_ylabel("Stato del servizio")
-ax.set_title("Recovery Timeline – TC-02 (Restart pod + Restore DB)")
+ax.set_title("Recovery Timeline – TC-01")
 
 # Legenda fuori dal plot
 #ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), frameon=True, fontsize=10)

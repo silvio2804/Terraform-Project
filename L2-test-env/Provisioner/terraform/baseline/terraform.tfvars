@@ -11,10 +11,9 @@ pm_gateway      = "192.168.1.1"
 ci_user    = "silvio"
 ci_password = "silvio"
 
-//ci_ssh_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAaL6ZpiCzkbjN2feimCco5TeaGEQs4UEXVC0WWX/1rH silviove@silviove"
 ci_ssh_key = <<EOF
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAaL6ZpiCzkbjN2feimCco5TeaGEQs4UEXVC0WWX/1rH silviove@silviove
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOOI1Am4P7u3GT8ceiFkBrW4uWuyd4+Om8s1v0whk2xE silvio@ansible
+ssh-ed25519 ... silviove@silviove
+ssh-ed25519 ... silvio@ansible
 EOF
 
 vm_definitions = [
